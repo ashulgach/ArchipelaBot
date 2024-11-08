@@ -23,13 +23,13 @@ module.exports = {
         UNIQUE (readySystemId, userId)
       )
       `,
-      `CREATE TABLE IF NOT EXISTS watches (
+      `CREATE TABLE IF NOT EXISTS bk_watches (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         guildId TEXT NOT NULL,
         channelId TEXT NOT NULL,
-        word TEXT NOT NULL,
+        itemPattern TEXT NOT NULL,
         userId TEXT NOT NULL,
-        UNIQUE(guildId, channelId, word, userId)
+        UNIQUE(guildId, channelId, itemPattern, userId)
       )
     `
     ];

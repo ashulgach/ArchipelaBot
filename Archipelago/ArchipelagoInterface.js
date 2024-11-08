@@ -10,7 +10,7 @@ class ArchipelagoInterface {
    * @param {string} slotName
    * @param {string|null} password optional
    */
-  constructor(textChannel, host, port, slotName, password=null) {
+  constructor(textChannel, host, port, slotName, password = null) {
     this.textChannel = textChannel;
     this.messageQueue = [];
     this.players = new Map();
@@ -63,9 +63,9 @@ class ArchipelagoInterface {
     let messages = [];
 
     for (let message of this.messageQueue) {
-      switch(message.type) {
+      switch (message.type) {
         case 'hint':
-        // Ignore hint messages if they should not be displayed
+          // Ignore hint messages if they should not be displayed
           if (!this.showHints) { continue; }
 
           // Replace player names with Discord User objects
@@ -77,17 +77,17 @@ class ArchipelagoInterface {
           break;
 
         case 'item':
-        // Ignore item messages if they should not be displayed
+          // Ignore item messages if they should not be displayed
           if (!this.showItems) { continue; }
           break;
 
         case 'progression':
-        // Ignore progression messages if they should not be displayed
+          // Ignore progression messages if they should not be displayed
           if (!this.showProgression) { continue; }
           break;
 
         case 'chat':
-        // Ignore chat messages if they should not be displayed
+          // Ignore chat messages if they should not be displayed
           if (!this.showChat) { continue; }
           break;
 
@@ -146,9 +146,9 @@ class ArchipelagoInterface {
         return;
       }
 
-      switch(part.type){
+      switch (part.type) {
         case 'player_id':
-          message.content += '**'+this.APClient.players.alias(parseInt(part.text, 10))+'**';
+          message.content += '**' + this.APClient.players.alias(parseInt(part.text, 10)) + '**';
           break;
 
         case 'item_id':
@@ -179,6 +179,40 @@ class ArchipelagoInterface {
 
     // Identify hint messages
     if (rawMessage.includes('[Hint]')) { message.type = 'hint'; }
+
+    if (message.type === 'item' || message.type === 'progression') {
+      try {
+        const watches = await dbQueryAll(
+          'SELECT * FROM bk_watches WHERE guildId = ? AND channelId = ?',
+          [this.textChannel.guild.id, this.textChannel.id]
+        );
+
+        if (watches) {
+          const itemName = message.content.match(/\*\*(.*?)\*\*/g)?.[1]?.replace(/\*\*/g, '');
+          if (itemName) {
+            const fuse = new Fuse([itemName], {
+              includeScore: true,
+              threshold: 0.4
+            });
+
+            const mentions = new Set();
+            for (const watch of watches) {
+              const result = fuse.search(watch.itemPattern);
+              if (result.length > 0) {
+                mentions.add(`<@${watch.userId}>`);
+              }
+            }
+
+            if (mentions.size > 0) {
+              message.content += ` (${Array.from(mentions).join(' ')})`;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error processing item watches:', error);
+      }
+    }
+
 
     this.messageQueue.push(message);
   };
