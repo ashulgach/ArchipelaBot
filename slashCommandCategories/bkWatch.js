@@ -9,10 +9,15 @@ const bkWatchCommand = {
         .addStringOption(option => 
             option.setName('item')
                 .setDescription('The item name to watch for (partial matches work)')
-                .setRequired(true)),
+                .setRequired(true))
+        .addBooleanOption(option =>
+            option.setName('delete-after-match')
+                .setDescription('Delete the watch after the first match')
+                .setRequired(false)),
 
     execute: async (interaction) => {
         const itemPattern = interaction.options.getString('item').toLowerCase();
+        const deleteAfterMatch = interaction.options.getBoolean('delete-after-match') ?? false;
         const channelId = interaction.channelId;
         const userId = interaction.user.id;
         const guildId = interaction.guildId;
@@ -31,12 +36,12 @@ const bkWatchCommand = {
             }
 
             await dbExecute(
-                'INSERT INTO bk_watches (guildId, channelId, itemPattern, userId) VALUES (?, ?, ?, ?)',
-                [guildId, channelId, itemPattern, userId]
+                'INSERT INTO bk_watches (guildId, channelId, itemPattern, userId, deleteAfterMatch) VALUES (?, ?, ?, ?, ?)',
+                [guildId, channelId, itemPattern, userId, deleteAfterMatch ? 1 : 0]
             );
 
             await interaction.reply({ 
-                content: `Watch set for items matching '${itemPattern}' in this channel.`, 
+                content: `Watch set for items matching '${itemPattern}' in this channel${deleteAfterMatch ? ' (will be deleted after first match)' : ''}.`, 
                 ephemeral: true 
             });
         } catch (error) {
@@ -49,6 +54,89 @@ const bkWatchCommand = {
     }
 };
 
+const bkWatchListCommand = {
+    commandBuilder: new SlashCommandBuilder()
+        .setName('bk-watch-list')
+        .setDescription('List all your active watches in this channel'),
+
+    execute: async (interaction) => {
+        const channelId = interaction.channelId;
+        const userId = interaction.user.id;
+        const guildId = interaction.guildId;
+
+        try {
+            const watches = await dbQueryAll(
+                'SELECT * FROM bk_watches WHERE guildId = ? AND channelId = ? AND userId = ?',
+                [guildId, channelId, userId]
+            );
+
+            if (!watches) {
+                return interaction.reply({
+                    content: 'You have no active watches in this channel.',
+                    ephemeral: true
+                });
+            }
+
+            const watchList = watches.map((watch, index) => 
+                `${index + 1}. "${watch.itemPattern}"${watch.deleteAfterMatch ? ' (deletes after match)' : ''}`
+            ).join('\n');
+
+            await interaction.reply({
+                content: `Your active watches in this channel:\n${watchList}`,
+                ephemeral: true
+            });
+        } catch (error) {
+            console.error('Error listing watches:', error);
+            await interaction.reply({
+                content: 'An error occurred while listing watches.',
+                ephemeral: true
+            });
+        }
+    }
+};
+
+const bkWatchDeleteCommand = {
+    commandBuilder: new SlashCommandBuilder()
+        .setName('bk-watch-delete')
+        .setDescription('Delete a watch for an item')
+        .addStringOption(option => 
+            option.setName('item')
+                .setDescription('The item pattern to stop watching')
+                .setRequired(true)),
+
+    execute: async (interaction) => {
+        const itemPattern = interaction.options.getString('item').toLowerCase();
+        const channelId = interaction.channelId;
+        const userId = interaction.user.id;
+        const guildId = interaction.guildId;
+
+        try {
+            const result = await dbExecute(
+                'DELETE FROM bk_watches WHERE guildId = ? AND channelId = ? AND itemPattern = ? AND userId = ?',
+                [guildId, channelId, itemPattern, userId]
+            );
+
+            if (result?.changes > 0) {
+                await interaction.reply({
+                    content: `Deleted watch for '${itemPattern}'.`,
+                    ephemeral: true
+                });
+            } else {
+                await interaction.reply({
+                    content: `No watch found for '${itemPattern}'.`,
+                    ephemeral: true
+                });
+            }
+        } catch (error) {
+            console.error('Error deleting watch:', error);
+            await interaction.reply({
+                content: 'An error occurred while deleting the watch.',
+                ephemeral: true
+            });
+        }
+    }
+};
+
 module.exports = {
-    commands: [bkWatchCommand]
+    commands: [bkWatchCommand, bkWatchListCommand, bkWatchDeleteCommand]
 };

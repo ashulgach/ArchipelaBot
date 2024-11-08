@@ -196,15 +196,27 @@ class ArchipelagoInterface {
             });
 
             const mentions = new Set();
+            const watchesToDelete = [];
+
             for (const watch of watches) {
               const result = fuse.search(watch.itemPattern);
               if (result.length > 0) {
                 mentions.add(`<@${watch.userId}>`);
+                if (watch.deleteAfterMatch) {
+                  watchesToDelete.push(watch.id);
+                }
               }
             }
 
             if (mentions.size > 0) {
               message.content += ` (${Array.from(mentions).join(' ')})`;
+            }
+
+            // Delete watches marked for deletion after match
+            if (watchesToDelete.length > 0) {
+              await dbExecute(
+                'DELETE FROM bk_watches WHERE id IN (' + watchesToDelete.join(',') + ')'
+              );
             }
           }
         }

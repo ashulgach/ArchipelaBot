@@ -29,8 +29,9 @@ module.exports = {
         channelId TEXT NOT NULL,
         itemPattern TEXT NOT NULL,
         userId TEXT NOT NULL,
+        deleteAfterMatch INTEGER DEFAULT 0,
         UNIQUE(guildId, channelId, itemPattern, userId)
-      )
+        )
     `
     ];
     for (let query of tableQueries) {
