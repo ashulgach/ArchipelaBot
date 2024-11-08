@@ -22,7 +22,16 @@ module.exports = {
         isReady INTEGER NOT NULL DEFAULT 0,
         UNIQUE (readySystemId, userId)
       )
-      `
+      `,
+      `CREATE TABLE IF NOT EXISTS watches (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guildId TEXT NOT NULL,
+        channelId TEXT NOT NULL,
+        word TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        UNIQUE(guildId, channelId, word, userId)
+      )
+    `
     ];
     for (let query of tableQueries) {
       await module.exports.dbExecute(query);

@@ -21,6 +21,7 @@ client.messageListeners = [];
 client.channelDeletedListeners = [];
 client.voiceStateListeners = [];
 client.slashCommandCategories = [];
+client.messageListeners.push(...client.slashCommandCategories.flatMap(category => category.messageListener).filter(Boolean));
 client.routines = [];
 
 client.tempData = {
