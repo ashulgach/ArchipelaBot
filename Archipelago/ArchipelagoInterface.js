@@ -2,6 +2,7 @@ const { Client, ITEMS_HANDLING_FLAGS, COMMON_TAGS, SERVER_PACKET_TYPE, Connectio
 const { User } = require('discord.js');
 const { v4: uuid } = require('uuid');
 const { dbExecute, dbQueryAll } = require('../database');
+const Fuse = require('fuse.js');
 
 class ArchipelagoInterface {
   /**
