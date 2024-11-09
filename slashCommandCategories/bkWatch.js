@@ -112,17 +112,19 @@ const bkWatchDeleteCommand = {
 
         try {
             if (itemPattern) {
-                // Delete specific watch and get changes in the same statement
-                const result = await dbQueryOne(
-                    `WITH deleted AS (
-                        DELETE FROM bk_watches 
-                        WHERE guildId = ? AND channelId = ? AND itemPattern = ? AND userId = ?
-                        RETURNING *
-                    ) SELECT count(*) as count FROM deleted`,
+                // First count how many matches we have
+                const count = await dbQueryOne(
+                    'SELECT COUNT(*) as count FROM bk_watches WHERE guildId = ? AND channelId = ? AND itemPattern = ? AND userId = ?',
                     [guildId, channelId, itemPattern, userId]
                 );
 
-                if (result?.count > 0) {
+                // Then delete
+                await dbExecute(
+                    'DELETE FROM bk_watches WHERE guildId = ? AND channelId = ? AND itemPattern = ? AND userId = ?',
+                    [guildId, channelId, itemPattern, userId]
+                );
+
+                if (count?.count > 0) {
                     await interaction.reply({
                         content: `Deleted watch for '${itemPattern}'.`,
                         ephemeral: true
@@ -134,19 +136,21 @@ const bkWatchDeleteCommand = {
                     });
                 }
             } else {
-                // Delete all watches and get count in the same statement
-                const result = await dbQueryOne(
-                    `WITH deleted AS (
-                        DELETE FROM bk_watches 
-                        WHERE guildId = ? AND channelId = ? AND userId = ?
-                        RETURNING *
-                    ) SELECT count(*) as count FROM deleted`,
+                // First count how many matches we have
+                const count = await dbQueryOne(
+                    'SELECT COUNT(*) as count FROM bk_watches WHERE guildId = ? AND channelId = ? AND userId = ?',
                     [guildId, channelId, userId]
                 );
 
-                if (result?.count > 0) {
+                // Then delete
+                await dbExecute(
+                    'DELETE FROM bk_watches WHERE guildId = ? AND channelId = ? AND userId = ?',
+                    [guildId, channelId, userId]
+                );
+
+                if (count?.count > 0) {
                     await interaction.reply({
-                        content: `Deleted all your watches in this channel (${result.count} watch${result.count === 1 ? '' : 'es'}).`,
+                        content: `Deleted all your watches in this channel (${count.count} watch${count.count === 1 ? '' : 'es'}).`,
                         ephemeral: true
                     });
                 } else {
