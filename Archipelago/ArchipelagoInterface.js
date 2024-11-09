@@ -184,25 +184,51 @@ class ArchipelagoInterface {
 
     if (message.type === 'item' || message.type === 'progression') {
       try {
+        console.log('Processing message:', {
+          type: message.type,
+          content: message.content
+        });
+
         const watches = await dbQueryAll(
           'SELECT * FROM bk_watches WHERE guildId = ? AND channelId = ?',
           [this.textChannel.guild.id, this.textChannel.id]
         );
 
+        console.log('Found watches:', watches);
+
         if (watches) {
-          const itemName = message.content.match(/\*\*(.*?)\*\*/g)?.[1]?.replace(/\*\*/g, '');
-          if (itemName) {
-            const fuse = new Fuse([itemName], {
+          const fullMessage = message.content.toLowerCase();
+          const itemMatch = message.content.match(/\*\*(.*?)\*\*/g);
+          const itemName = itemMatch ? itemMatch[1]?.replace(/\*\*/g, '').toLowerCase() : '';
+
+          console.log('Matching against:', {
+            fullMessage,
+            itemMatch,
+            itemName
+          });
+
+          if (fullMessage) {
+            const fuse = new Fuse([fullMessage, itemName], {
               includeScore: true,
-              threshold: 0.4
+              threshold: 0.4,
+              ignoreCase: true
             });
 
             const mentions = new Set();
             const watchesToDelete = [];
 
             for (const watch of watches) {
+              console.log('Checking watch:', {
+                pattern: watch.itemPattern,
+                userId: watch.userId,
+                deleteAfterMatch: watch.deleteAfterMatch
+              });
+
               const result = fuse.search(watch.itemPattern);
+              console.log('Fuse search result:', result);
+
               if (result.length > 0) {
+                console.log('Match found for watch:', watch);
                 mentions.add(`<@${watch.userId}>`);
                 if (watch.deleteAfterMatch) {
                   watchesToDelete.push(watch.id);
@@ -211,11 +237,12 @@ class ArchipelagoInterface {
             }
 
             if (mentions.size > 0) {
+              console.log('Adding mentions:', Array.from(mentions));
               message.content += ` (${Array.from(mentions).join(' ')})`;
             }
 
-            // Delete watches marked for deletion after match
             if (watchesToDelete.length > 0) {
+              console.log('Deleting watches:', watchesToDelete);
               await dbExecute(
                 'DELETE FROM bk_watches WHERE id IN (' + watchesToDelete.join(',') + ')'
               );
@@ -224,6 +251,7 @@ class ArchipelagoInterface {
         }
       } catch (error) {
         console.error('Error processing item watches:', error);
+        console.error('Error stack:', error.stack);
       }
     }
 
