@@ -66,6 +66,9 @@ class ArchipelagoInterface {
 
     for (let message of this.messageQueue) {
       switch (message.type) {
+        case 'watch':
+          // watch messages must always be shown
+          break;
         case 'hint':
           // Ignore hint messages if they should not be displayed
           if (!this.showHints) { continue; }
@@ -238,6 +241,7 @@ class ArchipelagoInterface {
 
             if (mentions.size > 0) {
               console.log('Adding mentions:', Array.from(mentions));
+              message.type = 'watch';
               message.content += ` (${Array.from(mentions).join(' ')})`;
             }
 
