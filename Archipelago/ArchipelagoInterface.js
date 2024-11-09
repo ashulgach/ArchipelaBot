@@ -1,6 +1,7 @@
 const { Client, ITEMS_HANDLING_FLAGS, COMMON_TAGS, SERVER_PACKET_TYPE, ConnectionStatus } = require('archipelago.js');
 const { User } = require('discord.js');
 const { v4: uuid } = require('uuid');
+const { dbExecute, dbQueryAll } = require('../database');
 
 class ArchipelagoInterface {
   /**
@@ -224,7 +225,6 @@ class ArchipelagoInterface {
         console.error('Error processing item watches:', error);
       }
     }
-
 
     this.messageQueue.push(message);
   };
