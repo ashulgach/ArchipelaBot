@@ -98,39 +98,68 @@ const bkWatchListCommand = {
 const bkWatchDeleteCommand = {
     commandBuilder: new SlashCommandBuilder()
         .setName('bk-watch-delete')
-        .setDescription('Delete a watch for an item')
+        .setDescription('Delete a watch for an item or all your watches')
         .addStringOption(option => 
             option.setName('item')
-                .setDescription('The item pattern to stop watching')
-                .setRequired(true)),
+                .setDescription('The item pattern to stop watching (leave empty to delete all watches)')
+                .setRequired(false)),
 
     execute: async (interaction) => {
-        const itemPattern = interaction.options.getString('item').toLowerCase();
+        const itemPattern = interaction.options.getString('item')?.toLowerCase();
         const channelId = interaction.channelId;
         const userId = interaction.user.id;
         const guildId = interaction.guildId;
 
         try {
-            const result = await dbExecute(
-                'DELETE FROM bk_watches WHERE guildId = ? AND channelId = ? AND itemPattern = ? AND userId = ?',
-                [guildId, channelId, itemPattern, userId]
-            );
+            if (itemPattern) {
+                // Delete specific watch and get changes in the same statement
+                const result = await dbQueryOne(
+                    `WITH deleted AS (
+                        DELETE FROM bk_watches 
+                        WHERE guildId = ? AND channelId = ? AND itemPattern = ? AND userId = ?
+                        RETURNING *
+                    ) SELECT count(*) as count FROM deleted`,
+                    [guildId, channelId, itemPattern, userId]
+                );
 
-            if (result?.changes > 0) {
-                await interaction.reply({
-                    content: `Deleted watch for '${itemPattern}'.`,
-                    ephemeral: true
-                });
+                if (result?.count > 0) {
+                    await interaction.reply({
+                        content: `Deleted watch for '${itemPattern}'.`,
+                        ephemeral: true
+                    });
+                } else {
+                    await interaction.reply({
+                        content: `No watch found for '${itemPattern}'.`,
+                        ephemeral: true
+                    });
+                }
             } else {
-                await interaction.reply({
-                    content: `No watch found for '${itemPattern}'.`,
-                    ephemeral: true
-                });
+                // Delete all watches and get count in the same statement
+                const result = await dbQueryOne(
+                    `WITH deleted AS (
+                        DELETE FROM bk_watches 
+                        WHERE guildId = ? AND channelId = ? AND userId = ?
+                        RETURNING *
+                    ) SELECT count(*) as count FROM deleted`,
+                    [guildId, channelId, userId]
+                );
+
+                if (result?.count > 0) {
+                    await interaction.reply({
+                        content: `Deleted all your watches in this channel (${result.count} watch${result.count === 1 ? '' : 'es'}).`,
+                        ephemeral: true
+                    });
+                } else {
+                    await interaction.reply({
+                        content: 'You had no watches in this channel.',
+                        ephemeral: true
+                    });
+                }
             }
         } catch (error) {
             console.error('Error deleting watch:', error);
             await interaction.reply({
-                content: 'An error occurred while deleting the watch.',
+                content: 'An error occurred while deleting the watch(es).',
                 ephemeral: true
             });
         }
